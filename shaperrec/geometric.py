@@ -8,9 +8,57 @@ def void(*l):
     pass
 def debug_on(*l):
     sys.stderr.write(' '.join(str(i) for i in l) +'\n') 
-debug = void
-#debug = debug_on
+#debug = void
+debug = debug_on
 
+curveFragments = 4
+
+
+def qudSmRelBezCurFrag(ctrlPts, startPoint):
+    #just call the normal one with adjusted coordinates
+    return qudSmBezCurFrag(ctrlPts, startPoint)
+    
+def qudSmBezCurFrag(ctrlPts, startPoint):
+    #There are no control points
+    ctrlPtsExt = ctrlPts[0:2] + ctrlPts
+    return qudBezCurFrag(ctrlPts, startPoint)
+    
+def qudRelBezCurFrag(ctrlPts, startPoint):
+    #just call the normal one with adjusted coordinates
+    return qudBezCurFrag(ctrlPts, startPoint)
+    
+def qudBezCurFrag(ctrlPts, startPoint):
+    #Fixme: Write the code to render a quad.
+    return cubBezCurFrag(ctrlPts, startPoint)
+
+def cubSmRelBezCurFrag(ctrlPts, startPoint):
+    #just call the normal one with adjusted coordinates
+    return cubSmBezCurFrag(ctrlPts, startPoint)
+    
+def cubSmBezCurFrag(ctrlPts, startPoint):
+    #just call the normal one with adjusted coordinates
+    ctrlPtsExt = [(startPoint[0] + ctrlPts[0] - ctrlPts[2] ), (startPoint[1] + ctrlPts[1] - ctrlPts[3] )] + ctrlPts
+    return cubBezCurFrag(ctrlPtsExt, startPoint)
+
+def cubRelBezCurFrag(ctrlPts, startPoint):
+    #just call the normal one with adjusted coordinates
+    return cubBezCurFrag(ctrlPts, startPoint)
+
+def cubBezCurFrag(ctrlPts, startPoint):
+     points =[]
+     rng = range(0, curveFragments + 1)
+     sx = startPoint[0]
+     sy = startPoint[1]
+     debug("control ", startPoint + ctrlPts)
+     for i in rng:
+         t = (float(i + 1 ) / float(len(rng)))
+         debug("t ", t,  ":", i)
+         newp= [(1-t) ** 3 * startPoint[0] + 3 * ((1-t) ** 2) * t* ctrlPts[0] +3 * (1-t) * (t ** 2) * ctrlPts[2] + (t ** 3) * ctrlPts[4],
+         (1-t) ** 3 * startPoint[1] + 3 * ((1-t) ** 2) * t* ctrlPts[1] +3 * (1-t) * (t ** 2) * ctrlPts[3] + (t ** 3) * ctrlPts[5]]
+         points.append(newp)
+     debug("result ", points)
+     return points
+     
 # *************************************************************
 # a list of geometric helper functions 
 def toArray(parsedList):
@@ -18,19 +66,39 @@ def toArray(parsedList):
     where command is a letter coding for a svg path command
           args are the argument of the command
     """
+    
+    # The set of commands is now complete, all absolute positioning has been tested, relative positioning still neds some more testing.
+    # Curved parts of the path need fragmenting instead of just being taken as a straight line.
     interpretCommand = {
-        'C': lambda x, prevL : x[-2:], # bezier curve. Ignore the curve.
-        'L': lambda x, prevL : x[0:2],
-        'M': lambda x, prevL : x[0:2],
-        'Z': lambda x, prevL : prevL[0],
+        'C': lambda x, prevL : cubBezCurFrag(x, prevL[-1]), # cubic bezier curve. Ignore the curve. #TODO, fragment
+        'c': lambda x, prevL : cubRelBezCurFrag(x, prevL[-1]), # cubic bezier curve, relative. Ignore the curve. #TODO, fragment        
+        'S': lambda x, prevL : cubSmBezCurFrag(x, prevL[-1]), # cubic bezier curve, smooth. TODO, fragment
+        's': lambda x, prevL : cubSmRelBezCurFrag(x, prevL[-1]), # cubic bezier curve, smooth, relative. TODO, fragment
+        'Q': lambda x, prevL : qudBezCurFrag(x, prevL[-1]), # quadratic bezier curve. TODO, fragment
+        'q': lambda x, prevL : qudRelBezCurFrag(x, prevL[-1]), # quadratic bezier curve, relative TODO, fragment        
+#[[prevL[-1][0] + x[0:1][0] , prevL[-1][1] + x[1:2][1]]], # quadratic bezier curve, relative TODO, fragment                
+        'T': lambda x, prevL : qudSmBezCurFrag(x, prevL[-1]), # quadratic bezier curve, smooth. TODO, fragment
+        't': lambda x, prevL : qudSmRelBezCurFrag(x, prevL[-1]), # quadratic bezier curve, smooth, relative. TODO, fragment
+        'L': lambda x, prevL : [x[0:2]], # Line
+        'l': lambda x, prevL : [[prevL[-1][0] + x[0:1][0] , prevL[-1][1] + x[1:2][1]]], # Line, relative
+        'M': lambda x, prevL : [x[0:2]], # Move
+        'm': lambda x, prevL : [[prevL[-1][0] + x[0:1][0] , prevL[-1][1] + x[1:2][1]]], # Move, Relative
+        'H': lambda x, prevL : [[x[0:1][0],prevL[-1][1]]], # Horizontal
+        'h': lambda x, prevL : [[prevL[-1][0] + x[0:1][0], prevL[-1][1]]], # Horizontal , relative
+        'V': lambda x, prevL : [[prevL[-1][0], x[0:1][0]]], # Verticle
+        'v': lambda x, prevL : [[prevL[-1][0], prevL[-1][1] + x[0:1][0]]], # Verticle, relative
+        'A': lambda x, prevL : [x[5:7]], # Arc segment
+        'a': lambda x, prevL : [[prevL[-1][0] + x[5:6][0] , prevL[-1][1] + x[6:7][1]]], # Arc segment, relative
+        'Z': lambda x, prevL : [prevL[0]], # Close path
+        'z': lambda x, prevL : [prevL[0]], # Close path
         }
 
     points =[]
     for i, (c, arg) in enumerate(parsedList):
-        #debug('toArray ', i, c , arg)
-        if c == 'H' or c == 'V' : continue
+        debug('toArray ', i, c , arg)
         newp = interpretCommand[c](arg, points)
-        points.append( newp)
+        debug('newPoints ', newp)
+        points = points + newp
     a=numpy.array( points )
 
     # Some times we have points *very* close to each other

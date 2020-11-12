@@ -13,8 +13,8 @@ def void(*l):
     pass
 def debug_on(*l):
     sys.stderr.write(' '.join(str(i) for i in l) +'\n') 
-debug = void
-#debug = debug_on
+#debug = void
+debug = debug_on
 
 # *************************************************************
 # *************************************************************
@@ -46,9 +46,16 @@ class PathGroup(object):
 
     def setNodeStyle(self, ele, node):
         style = node.get('style')
-        ele.set('style', style)
+        cssClass = node.get('class')
+        debug("style ", style)
+        debug("class ", cssClass)
+        if style == None and cssClass == None :
+           style = 'fill:none; stroke:red; stroke-width:1'
         
-
+        if not cssClass == None:
+            ele.set('class', cssClass)
+        if not style == None:
+            ele.set('style', style)
 
     @staticmethod
     def toSegments(points, refSVGPathList, refNode, isClosing=False):
@@ -70,7 +77,6 @@ class TangentEnvelop(PathGroup):
 
     def setNodeStyle(self, ele, node):
         style = node.get('style')+';marker-end:url(#Arrow1Lend)'
-        style
         ele.set('style', style)
 
 
@@ -109,7 +115,7 @@ class Circle(PathGroup):
         refnode.xpath('..')[0].append(ele)
         return ele
 
-    
+
 class Rectangle(PathGroup):
     """Specialization where the list of Path objects
     is to be replaced by a Rectangle specified by a center and size (w,h) and a rotation angle.
@@ -157,6 +163,87 @@ class Rectangle(PathGroup):
 
     @staticmethod
     def isRectangle( pathGroup):
+        """Check if the segments in pathGroups can form a rectangle.
+        Returns a Rectangle or None"""
+        #print 'xxxxxxxx isRectangle',pathGroups
+        if isinstance(pathGroup, Circle ): return None
+        segmentList = [p for p in pathGroup.listOfPaths if p.isSegment() ]#or p.effectiveNPoints >0]
+        if len(segmentList) != 4:
+            debug( 'rectangle Failed at length ', len(segmentList))
+            return None
+        a, b, c, d = segmentList
+
+        if geometric.length(a.point1, d.pointN)> 0.2*(a.length+d.length)*0.5:
+            debug('rectangle test failed closing ', geometric.length(a.point1, d.pointN), a.length, d.length)
+            return None
+        
+        Aac, Abd = geometric.closeAngleAbs(a.angle, c.angle), geometric.closeAngleAbs(b.angle, d.angle)
+        if  min(Aac, Abd) > 0.07 or max(Aac, Abd) >0.27 :
+            debug( 'rectangle Failed at angles', Aac, Abd)
+            return None
+        notsimilarL = lambda d1, d2: abs(d1-d2)>0.20*min(d1, d2)
+
+        pi, twopi = numpy.pi, 2*numpy.pi
+        angles = numpy.array( [p.angle   for p in segmentList] )
+        minAngleInd = numpy.argmin( numpy.minimum( abs(angles), abs( abs(angles)-pi), abs( abs(angles)-twopi) ) )
+        rotAngle = angles[minAngleInd]
+        width = (segmentList[minAngleInd].length + segmentList[(minAngleInd+2)%4].length)*0.5
+        height = (segmentList[(minAngleInd+1)%4].length + segmentList[(minAngleInd+3)%4].length)*0.5
+        # set rectangle center as the bbox center
+        x, y, w, h = geometric.computeBox( numpy.concatenate( [ p.points for p in segmentList]) )
+        r = Rectangle( numpy.array( [x+w/2, y+h/2]), (width, height), rotAngle, pathGroup.listOfPaths, pathGroup.refNode)
+        
+        debug( ' found a rectangle !! ', a.length, b.length, c.length, d.length )
+        return r
+
+
+class CurveGroup(PathGroup):
+    """Specialization where the list of Path objects
+    is to be replaced by a Rectangle specified by a center and size (w,h) and a rotation angle.
+
+    """
+    def __init__(self, center, size, angle, listOfPaths, refNode=None):
+        self.listOfPaths = listOfPaths
+        self.refNode = refNode
+        self.center = center
+        self.size = size
+        self.bbox = size
+        self.angle = angle
+        pos = self.center - numpy.array( size )/2
+        if angle != 0. :
+            cosa = numpy.cos(angle)
+            sina = numpy.sin(angle)            
+            self.rotMat = numpy.matrix( [ [ cosa, sina], [-sina, cosa] ] )
+            self.rotMatstr = 'matrix(%1.7f,%1.7f,%1.7f,%1.7f,0,0)'%(cosa, sina, -sina, cosa)
+
+
+            #debug(' !!!!! Rotated rectangle !!', self.size, self.bbox,  ' angles ', a, self.angle ,' center',self.center)
+        else :
+            self.rotMatstr = None
+        self.pos = pos
+        debug(' !!!!! Rectangle !!', self.size, self.bbox,  ' angles ', self.angle, ' center', self.center)
+
+    def addToNode(self, refnode):
+        """Add a node in the xml structure corresponding to this rect
+        refnode : xml node used as a reference, new point will be inserted a same level"""
+        ele = etree.Element('{http://www.w3.org/2000/svg}rect')
+        self.fill(ele)
+        refnode.xpath('..')[0].append(ele)
+        return ele
+        
+#    def fill(self, ele):
+#        w, h = self.size
+#        ele.set('width', str(w))
+#        ele.set('height', str(h))
+#        w, h = self.bbox
+#        ele.set('x', str(self.pos[0]))
+#        ele.set('y', str(self.pos[1]))
+#        if self.rotMatstr:
+#            ele.set('transform', 'rotate(%3.2f,%f,%f)'%(numpy.degrees(self.angle), self.center[0], self.center[1]))
+#            #ele.set('transform', self.rotMatstr)       
+
+    @staticmethod
+    def isCurvedSegment( pathGroup):
         """Check if the segments in pathGroups can form a rectangle.
         Returns a Rectangle or None"""
         #print 'xxxxxxxx isRectangle',pathGroups

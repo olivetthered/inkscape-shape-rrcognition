@@ -8,7 +8,7 @@ InkscapeShapeReco is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 3 of the License, or
 (at your option) any later version.
-
+ 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -46,8 +46,8 @@ def void(*l):
     pass
 def debug_on(*l):
     sys.stderr.write(' '.join(str(i) for i in l) +'\n') 
-debug = void
-#debug = debug_on
+#debug = void
+debug = debug_on
 
 from shaperrec import geometric
 from shaperrec import internal
@@ -123,7 +123,7 @@ class PreProcess():
 
         angles = numpy.array([s.angle for s in segs ])
         angles[numpy.where(angles<0)] += geometric._pi # we care about direction, not angle orientation
-        clList = miscellaneous.clusterValues(angles, 0.30, refScaleAbs='abs')#15
+        clList = miscellaneous.clusterValues(angles, 0.30, refScaleAbs='abs')#was 15
         
         pi =  numpy.pi
         for cl in clList:
@@ -860,10 +860,12 @@ class ShapeReco(inkex.Effect):
         return analyzedNodes       
         
     def addShapesToDoc(self, pathGroupList):
-        for group in pathGroupList:            
+        for group in pathGroupList:
+            
             debug("final ", group.listOfPaths, group.refNode )
+            debug("final-style ", group.refNode.get('style'))
             # change to Rectangle if possible :
-            #finalshape = manipulation.toRemarkableShape( group )
+            finalshape = manipulation.toRemarkableShape( group )
             ele = group.addToNode( group.refNode)
             group.setNodeStyle(ele, group.refNode)
             if not self.options.keepOrigin:
