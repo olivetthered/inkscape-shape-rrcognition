@@ -1,5 +1,6 @@
 import numpy
 import sys
+import collections
 numpy.set_printoptions(precision=3)
 
 # *************************************************************
@@ -11,7 +12,7 @@ def debug_on(*l):
 #debug = void
 debug = debug_on
 
-curveFragments = 4
+curveFragments = 10
 
 
 def qudSmRelBezCurFrag(ctrlPts, startPoint):
@@ -20,8 +21,11 @@ def qudSmRelBezCurFrag(ctrlPts, startPoint):
     
 def qudSmBezCurFrag(ctrlPts, startPoint):
     #There are no control points
-    ctrlPtsExt = ctrlPts[0:2] + ctrlPts
-    return qudBezCurFrag(ctrlPts, startPoint)
+    debug("startPoint: '", startPoint, "'")
+    debug("shouldbethehandle: '", [startPoint[2] + (startPoint[2] - startPoint[0]), startPoint[3] + (startPoint[3] - startPoint[1])], "'")
+    ctrlPtsExt = [startPoint[2] + (startPoint[2] - startPoint[0]), startPoint[3] + (startPoint[3] - startPoint[1])] + ctrlPts
+    debug("shound be the same as non smooth: '", ctrlPtsExt)
+    return cubBezCurFrag(ctrlPtsExt, startPoint[2:4])
     
 def qudRelBezCurFrag(ctrlPts, startPoint):
     #just call the normal one with adjusted coordinates
@@ -44,17 +48,81 @@ def cubRelBezCurFrag(ctrlPts, startPoint):
     #just call the normal one with adjusted coordinates
     return cubBezCurFrag(ctrlPts, startPoint)
 
+
+
+def compute(t, points): #, _3d
+    #// shortcuts
+    if (t == 0) :
+        #points[0].t = 0;
+        return points[0:2]
+
+    order = int((int(len(points)) / 2)) - 1;
+
+    if (t == 1) :
+        #points[order].t = 1;
+        return points[order * 2:order * 2 + 2]
+
+    mt = 1 - t
+    p = points
+
+#        // constant?
+    if (order == 0):
+        #points[0].t = t;
+        return points[0:2]
+
+    #// linear?
+    if (order == 1):
+        ret = [
+            mt * p[0] + t * p[2],
+            mt * p[1] + t * p[3]
+    #         t: t,
+            ]
+    #      if (_3d) {
+    #        ret.z = mt * p[0].z + t * p[1].z;
+    #      }
+        return ret
+
+    #// quadratic/cubic curve?
+    if (order < 4):
+        mt2 = mt * mt
+        t2 = t * t
+        a = b = c = d = 0
+
+    if (order == 2):
+        p = p + [0,0]
+        a = mt2
+        b = mt * t * 2
+        c = t2
+    elif (order == 3):
+        a = mt2 * mt
+        b = mt2 * t * 3
+        c = mt * t2 * 3
+        d = t * t2
+
+    ret = [
+        a * p[0] + b * p[2] + c * p[4] + d * p[6],
+        a * p[1] + b * p[3] + c * p[5] + d * p[7]
+        ]
+    #      if (_3d) {
+    #        ret.z = a * p[0].z + b * p[1].z + c * p[2].z + d * p[3].z;
+    #      }
+    return ret
+    
+
+
 def cubBezCurFrag(ctrlPts, startPoint):
      points =[]
      rng = range(0, curveFragments + 1)
-     sx = startPoint[0]
-     sy = startPoint[1]
+     #sx = startPoint[0]
+     #sy = startPoint[1]
      debug("control ", startPoint + ctrlPts)
+     inputPoints = startPoint + ctrlPts
      for i in rng:
-         t = (float(i + 1 ) / float(len(rng)))
+         t = (float(i + 1) / float(len(rng)))
          debug("t ", t,  ":", i)
-         newp= [(1-t) ** 3 * startPoint[0] + 3 * ((1-t) ** 2) * t* ctrlPts[0] +3 * (1-t) * (t ** 2) * ctrlPts[2] + (t ** 3) * ctrlPts[4],
-         (1-t) ** 3 * startPoint[1] + 3 * ((1-t) ** 2) * t* ctrlPts[1] +3 * (1-t) * (t ** 2) * ctrlPts[3] + (t ** 3) * ctrlPts[5]]
+         newp = compute(t, inputPoints)
+         #newp= [(1-t) ** 3 * startPoint[0] + 3 * ((1-t) ** 2) * t* ctrlPts[0] +3 * (1-t) * (t ** 2) * ctrlPts[2] + (t ** 3) * ctrlPts[4],
+         #(1-t) ** 3 * startPoint[1] + 3 * ((1-t) ** 2) * t* ctrlPts[1] +3 * (1-t) * (t ** 2) * ctrlPts[3] + (t ** 3) * ctrlPts[5]]
          points.append(newp)
      debug("result ", points)
      return points
@@ -92,11 +160,18 @@ def toArray(parsedList):
         'Z': lambda x, prevL : [prevL[0]], # Close path
         'z': lambda x, prevL : [prevL[0]], # Close path
         }
-
+    
+    parseLookBack = []
+    parseLookBack = collections.deque(parseLookBack)
     points =[]
     for i, (c, arg) in enumerate(parsedList):
         debug('toArray ', i, c , arg)
-        newp = interpretCommand[c](arg, points)
+        debug('parseLookBack: ', parseLookBack)
+        newp = interpretCommand[c](arg, parseLookBack)
+        parseLookBack.append(arg)
+        while len(parseLookBack) > 1:
+            parseLookBack.popleft()
+
         debug('newPoints ', newp)
         points = points + newp
     a=numpy.array( points )
