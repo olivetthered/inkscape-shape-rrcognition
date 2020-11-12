@@ -65,58 +65,58 @@ numpy.set_printoptions(precision=3)
 class ShapeReco(inkex.Effect):
     def __init__(self):
         inkex.Effect.__init__(self)
-        self.OptionParser.add_option("--title")
-        self.OptionParser.add_option("-k", "--keepOrigin", dest="keepOrigin", default=False,
-                                     action="store", type="inkbool",                                      
+        self.arg_parser.add_argument("--title")
+        self.arg_parser.add_argument("-k", "--keepOrigin", dest="keepOrigin", default=False,
+                                     type=inkex.Boolean,                                      
                                      help="Do not replace path")
 
-        self.OptionParser.add_option( "--MainTabs")
-        #self.OptionParser.add_option( "--Basic")
+        self.arg_parser.add_argument( "--MainTabs")
+        #self.arg_parser.add_argument( "--Basic")
 
-        self.OptionParser.add_option( "--segExtensionDtoSeg", dest="segExtensionDtoSeg", default=0.03,
-                                      action="store", type="float",                                      
+        self.arg_parser.add_argument( "--segExtensionDtoSeg", dest="segExtensionDtoSeg", default=0.03,
+                                      type=float,                                      
                                       help="max distance from point to segment")
-        self.OptionParser.add_option( "--segExtensionQual", dest="segExtensionQual", default=0.5,
-                                      action="store", type="float",                                      
+        self.arg_parser.add_argument( "--segExtensionQual", dest="segExtensionQual", default=0.5,
+                                      type=float,                                      
                                       help="segment extension fit quality")
-        self.OptionParser.add_option( "--segExtensionEnable", dest="segExtensionEnable", default=True,
-                                      action="store", type="inkbool",                                      
+        self.arg_parser.add_argument( "--segExtensionEnable", dest="segExtensionEnable", default=True,
+                                      type=inkex.Boolean,                                      
                                       help="Enable segment extension")
 
 
-        self.OptionParser.add_option( "--segAngleMergeEnable", dest="segAngleMergeEnable", default=True,
-                                      action="store", type="inkbool",                                      
+        self.arg_parser.add_argument( "--segAngleMergeEnable", dest="segAngleMergeEnable", default=True,
+                                      type=inkex.Boolean,                                      
                                       help="Enable merging of almost aligned consecutive segments")
-        self.OptionParser.add_option( "--segAngleMergeTol1", dest="segAngleMergeTol1", default=0.2,
-				      action="store", type="float",                                      
+        self.arg_parser.add_argument( "--segAngleMergeTol1", dest="segAngleMergeTol1", default=0.2,
+				      type=float,                                      
                                       help="merging with tollarance 1")
-        self.OptionParser.add_option( "--segAngleMergeTol2", dest="segAngleMergeTol2", default=0.35,
-				      action="store", type="float",                                      
+        self.arg_parser.add_argument( "--segAngleMergeTol2", dest="segAngleMergeTol2", default=0.35,
+				      type=float,                                      
                                       help="merging with tollarance 2")
                                       
-        self.OptionParser.add_option( "--segAngleMergePara", dest="segAngleMergePara", default=0.001,
-				      action="store", type="float",                                      
+        self.arg_parser.add_argument( "--segAngleMergePara", dest="segAngleMergePara", default=0.001,
+				      type=float,                                      
                                       help="merge lines as parralels if they fit")
 
-        self.OptionParser.add_option( "--segRemoveSmallEdge", dest="segRemoveSmallEdge", default=True,
-                                      action="store", type="inkbool",                                      
+        self.arg_parser.add_argument( "--segRemoveSmallEdge", dest="segRemoveSmallEdge", default=True,
+                                      type=inkex.Boolean,                                      
                                       help="Enable removing very small segments")
 
-        self.OptionParser.add_option( "--doUniformization", dest="doUniformization", default=True,
-                                     action="store", type="inkbool",                                      
+        self.arg_parser.add_argument( "--doUniformization", dest="doUniformization", default=True,
+                                     type=inkex.Boolean,                                      
                                      help="Preform angles and distances uniformization")
 
         for opt in ["doParrallelize", "doKnownAngle", "doEqualizeDist", "doEqualizeRadius", "doCenterCircOnSeg"]:
-            self.OptionParser.add_option( "--"+opt, dest=opt, default=True,
-                                          action="store", type="inkbool",                                      
+            self.arg_parser.add_argument( "--"+opt, dest=opt, default=True,
+                                          type=inkex.Boolean,                                      
                                           help=opt)
                                           #0.3
-        self.OptionParser.add_option( "--shapeDistLocal", dest="shapeDistLocal", default=0.3,
-	                                     action="store", type="float",                                      
+        self.arg_parser.add_argument( "--shapeDistLocal", dest="shapeDistLocal", default=0.3,
+	                                     type=float,                                      
                                      help="Pthe percentage of difference at which we make lengths equal, locally")
                                      #0.025
-        self.OptionParser.add_option( "--shapeDistGlobal", dest="shapeDistGlobal", default=0.025,
-	                                     action="store", type="float",                                      
+        self.arg_parser.add_argument( "--shapeDistGlobal", dest="shapeDistGlobal", default=0.025,
+	                                     type=float,                                      
                                      help="Pthe percentage of difference at which we make lengths equal, globally")
                                           
 
@@ -125,7 +125,7 @@ class ShapeReco(inkex.Effect):
 
         rej='{http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd}type'
         paths = []
-        for id, node in self.selected.items():
+        for id, node in list(self.svg.selected.items()):
             if node.tag == '{http://www.w3.org/2000/svg}path' and rej not in list(node.keys()):                
                 paths.append(node)
 
@@ -145,7 +145,7 @@ class ShapeReco(inkex.Effect):
         removeSeg=[]
         def remove(p):
             removeSeg.append(p)
-            if hasattr(p,"__next__") : p.next.prev = p.prev
+            if hasattr(p, "__next__") : p.next.prev = p.prev
             if p.prev: p.prev.next = p.__next__ if hasattr(p, "__next__") else None
             p.effectiveNPoints =0
             debug('      --> remove !', p, p.length, len(p.points))
@@ -218,7 +218,7 @@ class ShapeReco(inkex.Effect):
             #meanA = angles[list(cl)].mean()
             for i in cl:
                 seg = segs[i]
-                seg.newAngle = meanA if seg.angle>=0. else meanA-_pi
+                seg.newAngle = meanA if seg.angle>=0. else meanA-geometric._pi
 
 
     def prepareDistanceEqualization(self,segs, relDelta=0.1):
@@ -430,7 +430,7 @@ class ShapeReco(inkex.Effect):
                # Ignore last point for this check
                points = points[:-1]
                tangents = tangents[:-1]
-               print('Removed last ', points)
+               print(('Removed last ', points))
            xmin, ymin, w, h = geometric.computeBox( points)
            diag2=(w*w+h*h)
            
@@ -557,6 +557,8 @@ class ShapeReco(inkex.Effect):
 
         d = geometric.D(sourcepoints[0], sourcepoints[-1])
         x, y, wTot, hTot = geometric.computeBox(sourcepoints)
+        if wTot == 0: wTot = 0.001
+        if hTot == 0: hTot = 0.001
         aR = min(wTot/hTot, hTot/wTot)
         maxDim = max(wTot, hTot)
         # was 0.2
@@ -569,7 +571,7 @@ class ShapeReco(inkex.Effect):
             svgCommandsList = svgCommandsList[:-1]
 
         if len(sourcepoints) < 4:
-            return PathGroup.toSegments(sourcepoints, svgCommandsList, refNode, isClosing=isClosing)
+            return groups.PathGroup.toSegments(sourcepoints, svgCommandsList, refNode, isClosing=isClosing)
         
         tangents = manipulation.buildTangents(sourcepoints, isClosing=isClosing)
 
@@ -579,7 +581,7 @@ class ShapeReco(inkex.Effect):
         # Check if circle -----------------------
         if isClosing:
             if len(sourcepoints)<9:
-                return PathGroup.toSegments(sourcepoints, svgCommandsList, refNode, isClosing=True)
+                return groups.PathGroup.toSegments(sourcepoints, svgCommandsList, refNode, isClosing=True)
             isCircle, res = self.checkForCircle( sourcepoints, tangents)        
             debug("Is Circle = ", isCircle )
             if isCircle:
@@ -591,10 +593,10 @@ class ShapeReco(inkex.Effect):
                     circ = groups.Circle((x, y), rmin,  refNode, rmax=rmax, angle=angle)
                 circ.points = sourcepoints
                 return circ
-            else:
-                hasArcs, res = self.checkForArcs( sourcepoints, tangents)   
-        else:
-            hasArcs, res = self.checkForArcs( sourcepoints, tangents)
+            #else:
+            #    hasArcs, res = self.checkForArcs( sourcepoints, tangents)   
+        #else:
+            #hasArcs, res = self.checkForArcs( sourcepoints, tangents)
         # -----------------------
         if hasArcs:
         	x, y, rmin, rmax, angle = res
@@ -684,7 +686,7 @@ class ShapeReco(inkex.Effect):
                         # force merge
                         points= numpy.concatenate( [  last.points, first.points] )
                         newseg = manipulation.fitSingleSegment(points)
-                        newseg.next = first.__next__
+                        newseg.next = first.__next__ if hasattr(first, "__next__") else None
                         last.prev.next = None
                         newSegs[0]=newseg
                         newSegs.pop()
@@ -715,7 +717,7 @@ class ShapeReco(inkex.Effect):
         for nid in nids:
             el = self.getElementById(nid)
             if el is None:
-                print("Cant find ", nid)
+                print(("Cant find ", nid))
                 return
             eList.append(el)
         class tmp:
@@ -737,14 +739,9 @@ class ShapeReco(inkex.Effect):
             
         if node.tag.endswith('path'):
             parsedSVGCommands = node.get('d')
-            
-            #sys.stderr.write("parsedSVGCommands = " + str(parsedSVGCommands) + "\n")
+                        
             strPath = simplepath.parsePath(str(parsedSVGCommands))
-            #sys.stderr.write("simplepath.parsePath = " + str(strPath) + "\n")
-            #sys.stderr.write("inkex.paths.Path = " + str(inkex.paths.Path(parsedSVGCommands)))
-            #g = self.segsFromTangents(strPath, node)
             g = self.segsFromTangents(simplepath.parsePath(parsedSVGCommands), node)
-            #g = self.tangentEnvelop(simplepath.parsePath(parsedSVGCommands), node)
         elif node.tag.endswith('rect'):
             tr = node.get('transform', None)
             if tr and tr.startswith('matrix'):
@@ -770,7 +767,7 @@ class ShapeReco(inkex.Effect):
         nodes : a list of nodes"""
         analyzedNodes = []
 
-        # convert nodes to list of segments (PathGroup) or Circle
+        # convert nodes to list of segments (groups.PathGroup) or Circle
         for n in nodes :
             g = self.buildShape(n)
             if g :
@@ -868,4 +865,4 @@ class ShapeReco(inkex.Effect):
         
 if __name__ == '__main__':
     e = ShapeReco()
-    e.affect()
+    e.run()

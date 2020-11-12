@@ -80,7 +80,7 @@ class SegmentExtender:
 class FwdExtender(SegmentExtender):
     extDir='Fwd'
     def getNext(self, seg):
-        return seg.__next__ if hasattr(seg,"__next__") else None
+        return seg.__next__ if hasattr(seg, "__next__") else None
     def pointsToFit(self, seg, pointsToTest, mergeD):
         distancesToLine =abs(seg.a*pointsToTest[:, 0]+seg.b*pointsToTest[:, 1]+seg.c)        
         goodInd=len(pointsToTest)
@@ -118,7 +118,7 @@ class BwdExtender(SegmentExtender):
     def removePath(self, seg, newseg, nextPathL, addedPoints):
         npoints = len(addedPoints)
         acc=0
-        newseg.next = seg.__next__ if hasattr(seg,"__next__") else None            
+        newseg.next = seg.__next__ if hasattr(seg, "__next__") else None            
         for p in reversed(nextPathL):
             if (acc+len(p.points))<=npoints:
                 p.mergedObj = None

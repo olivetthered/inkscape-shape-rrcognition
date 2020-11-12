@@ -3,6 +3,7 @@ import sys
 import simplepath
 import numpy
 from shaperrec import manipulation
+from lxml import etree
 
 
 
@@ -15,6 +16,8 @@ def debug_on(*l):
 debug = void
 #debug = debug_on
 
+errwrite = void
+    
 
 # miscellaneous helper functions to sort
 
@@ -25,7 +28,7 @@ def mergeConsecutiveCloseAngles( segList , mangle =0.25 , q=0.5):
     def toMerge(seg):
         l=[seg]
         setattr(seg, 'merged', True)
-        if hasattr(seg,"__next__") and seg.next.isSegment() :
+        if hasattr(seg, "__next__") and seg.next.isSegment() :
             debug('merging segs ', seg.angle, ' with : ', seg.next.point1, seg.next.pointN, ' ang=', seg.next.angle)
             if geometric.deltaAngleAbs( seg.angle, seg.next.angle) < mangle:
                 l += toMerge(seg.next)
@@ -78,8 +81,8 @@ def addPath(newList, refnode):
     """Add a node in the xml structure corresponding to the content of newList
     newList : list of Segment or Path
     refnode : xml node used as a reference, new point will be inserted a same level"""
-    ele = inkex.etree.Element('{http://www.w3.org/2000/svg}path')
-    sys.stderr.write("newList = " + str(newList) + "\n")
+    ele = etree.Element('{http://www.w3.org/2000/svg}path')
+    errwrite("newList = " + str(newList) + "\n")
     ele.set('d', simplepath.formatPath(newList))
     refnode.xpath('..')[0].append(ele)
     return ele
@@ -180,12 +183,12 @@ def clusterValues( values, relS=0.1 , refScaleAbs='range'  ):
         #print '==', cp.size , relS, cp.c1.indices , cp.c2.indices, cp.potentialC.indices
 
         while cp.size < relS:
-            if hasattr(cp,"__next__"):
+            if hasattr(cp, "__next__"):
                 cp.next.setC1(cp.potentialC)
                 cp.next.prev = cp.prev
             if cp.prev:
                 cp.prev.setC2(cp.potentialC)
-                cp.prev.next = cp.__next__ if hasattr(cp,"__next__") else None
+                cp.prev.next = cp.__next__ if hasattr(cp, "__next__") else None
             cList.remove(cp)
             if len(cList)<2:
                 break

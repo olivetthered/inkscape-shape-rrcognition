@@ -1,7 +1,11 @@
 import numpy
 import sys
 import inkex
+from lxml import etree
+from shaperrec import geometric
 from shaperrec import miscellaneous
+from shaperrec import internal
+from shaperrec import manipulation
 
 # *************************************************************
 # debugging 
@@ -92,7 +96,7 @@ class Circle(PathGroup):
     def addToNode(self, refnode):
         """Add a node in the xml structure corresponding to this rect
         refnode : xml node used as a reference, new point will be inserted a same level"""
-        ele = inkex.etree.Element('{http://www.w3.org/2000/svg}'+self.type)
+        ele = etree.Element('{http://www.w3.org/2000/svg}'+self.type)
 
         ele.set('cx', str(self.center[0]))
         ele.set('cy', str(self.center[1]))
@@ -135,7 +139,7 @@ class Rectangle(PathGroup):
     def addToNode(self, refnode):
         """Add a node in the xml structure corresponding to this rect
         refnode : xml node used as a reference, new point will be inserted a same level"""
-        ele = inkex.etree.Element('{http://www.w3.org/2000/svg}rect')
+        ele = etree.Element('{http://www.w3.org/2000/svg}rect')
         self.fill(ele)
         refnode.xpath('..')[0].append(ele)
         return ele

@@ -28,6 +28,7 @@ def toArray(parsedList):
     points =[]
     for i, (c, arg) in enumerate(parsedList):
         #debug('toArray ', i, c , arg)
+        if c == 'H' or c == 'V' : continue
         newp = interpretCommand[c](arg, points)
         points.append( newp)
     a=numpy.array( points )

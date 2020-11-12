@@ -191,15 +191,15 @@ class Segment(Path):
         doRotation = min(nu.min(), nv.min()) <1e-4
         if doRotation:
             # rotate to avoid numerical issues
-            nu = numpy.array(rotMat.dot(nu))[0]
-            nv = numpy.array(rotMat.dot(nv))[0]
+            nu = numpy.array(geometric.rotMat.dot(nu))[0]
+            nv = numpy.array(geometric.rotMat.dot(nv))[0]
         m = numpy.matrix( (nu, nv) )        
 
         i =  (m**-1).dot(u) 
         i=numpy.array( i).swapaxes(0, 1)[0]
         debug('  intersection ', nu, nv, self.angle, seg.angle, ' --> ', i)
         if doRotation:
-            i = unrotMat.dot(i).A1
+            i = geometric.unrotMat.dot(i).A1
         debug('   ', i)
         
         
@@ -214,7 +214,7 @@ class Segment(Path):
                 return
             debug(' Intersect', self, next,  ' from ', self.point1, self.pointN, ' to ', next.point1, next.pointN,)
             inter = self.intersect(next)
-            debug('  --> ', inter, '  d=', D(self.pointN, inter) )
+            debug('  --> ', inter, '  d=', geometric.D(self.pointN, inter) )
             next.point1 = inter
             self.pointN = inter
             self.computeDirLength()
