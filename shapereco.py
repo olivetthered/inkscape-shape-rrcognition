@@ -59,82 +59,9 @@ from shaperrec import miscellaneous
 import numpy
 numpy.set_printoptions(precision=3)
 
-# *************************************************************
-# The inkscape extension
-# *************************************************************
-class ShapeReco(inkex.Effect):
-    def __init__(self):
-        inkex.Effect.__init__(self)
-        self.arg_parser.add_argument("--title")
-        self.arg_parser.add_argument("-k", "--keepOrigin", dest="keepOrigin", default=False,
-                                     type=inkex.Boolean,                                      
-                                     help="Do not replace path")
+class PreProcess():
 
-        self.arg_parser.add_argument( "--MainTabs")
-        #self.arg_parser.add_argument( "--Basic")
-
-        self.arg_parser.add_argument( "--segExtensionDtoSeg", dest="segExtensionDtoSeg", default=0.03,
-                                      type=float,                                      
-                                      help="max distance from point to segment")
-        self.arg_parser.add_argument( "--segExtensionQual", dest="segExtensionQual", default=0.5,
-                                      type=float,                                      
-                                      help="segment extension fit quality")
-        self.arg_parser.add_argument( "--segExtensionEnable", dest="segExtensionEnable", default=True,
-                                      type=inkex.Boolean,                                      
-                                      help="Enable segment extension")
-
-
-        self.arg_parser.add_argument( "--segAngleMergeEnable", dest="segAngleMergeEnable", default=True,
-                                      type=inkex.Boolean,                                      
-                                      help="Enable merging of almost aligned consecutive segments")
-        self.arg_parser.add_argument( "--segAngleMergeTol1", dest="segAngleMergeTol1", default=0.2,
-				      type=float,                                      
-                                      help="merging with tollarance 1")
-        self.arg_parser.add_argument( "--segAngleMergeTol2", dest="segAngleMergeTol2", default=0.35,
-				      type=float,                                      
-                                      help="merging with tollarance 2")
-                                      
-        self.arg_parser.add_argument( "--segAngleMergePara", dest="segAngleMergePara", default=0.001,
-				      type=float,                                      
-                                      help="merge lines as parralels if they fit")
-
-        self.arg_parser.add_argument( "--segRemoveSmallEdge", dest="segRemoveSmallEdge", default=True,
-                                      type=inkex.Boolean,                                      
-                                      help="Enable removing very small segments")
-
-        self.arg_parser.add_argument( "--doUniformization", dest="doUniformization", default=True,
-                                     type=inkex.Boolean,                                      
-                                     help="Preform angles and distances uniformization")
-
-        for opt in ["doParrallelize", "doKnownAngle", "doEqualizeDist", "doEqualizeRadius", "doCenterCircOnSeg"]:
-            self.arg_parser.add_argument( "--"+opt, dest=opt, default=True,
-                                          type=inkex.Boolean,                                      
-                                          help=opt)
-                                          #0.3
-        self.arg_parser.add_argument( "--shapeDistLocal", dest="shapeDistLocal", default=0.3,
-	                                     type=float,                                      
-                                     help="Pthe percentage of difference at which we make lengths equal, locally")
-                                     #0.025
-        self.arg_parser.add_argument( "--shapeDistGlobal", dest="shapeDistGlobal", default=0.025,
-	                                     type=float,                                      
-                                     help="Pthe percentage of difference at which we make lengths equal, globally")
-                                          
-
-        
-    def effect(self):
-
-        rej='{http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd}type'
-        paths = []
-        for id, node in list(self.svg.selected.items()):
-            if node.tag == '{http://www.w3.org/2000/svg}path' and rej not in list(node.keys()):                
-                paths.append(node)
-
-        shapes = self.extractShapes(paths)
-        # add new shapes in SVG document
-        self.addShapesToDoc( shapes )
-
-
-    def removeSmallEdge(self, paths, wTot, hTot):
+    def removeSmallEdge(paths, wTot, hTot):
         """Remove small Path objects which stand between 2 Segments (or at the ends of the sequence).
         Small means the bbox of the path is less then 5% of the mean of the 2 segments."""
         if len(paths)<2:
@@ -185,12 +112,8 @@ class ShapeReco(inkex.Effect):
         debug('removed Segments ', removeSeg)
         for p in removeSeg:
             paths.remove(p)
-
-
-            
-            
     
-    def prepareParrallelize(self, segs):
+    def prepareParrallelize( segs):
         """Group Segment by their angles (segments are grouped together if their deltAangle is within 0.15 rad)
         The 'newAngle' member of segments in a group are then set to the mean angle of the group (where angles are all
         considered in [-pi, pi])
@@ -219,9 +142,9 @@ class ShapeReco(inkex.Effect):
             for i in cl:
                 seg = segs[i]
                 seg.newAngle = meanA if seg.angle>=0. else meanA-geometric._pi
-
-
-    def prepareDistanceEqualization(self,segs, relDelta=0.1):
+    
+    
+    def prepareDistanceEqualization(segs, relDelta=0.1):
         """ Input segments are grouped according to their length  :
           - for each length L, find all other lengths within L*relDelta. of L.
           - Find the larger of such subgroup.
@@ -252,7 +175,7 @@ class ShapeReco(inkex.Effect):
         return allDist
 
 
-    def prepareRadiusEqualization(self, circles, otherDists, relSize=0.2):
+    def prepareRadiusEqualization(circles, otherDists, relSize=0.2):
         """group circles radius and distances into cluster.
         Then set circles radius according to the mean of the clusters they belong to."""
         ncircles = len(circles)
@@ -276,7 +199,7 @@ class ShapeReco(inkex.Effect):
         return allDist
 
 
-    def centerCircOnSeg(self, circles, segments, relSize=0.18):
+    def centerCircOnSeg(circles, segments, relSize=0.18):
         """ move centers of circles onto the segments if close enough"""
         for circ in circles:
             circ.moved = False
@@ -289,7 +212,7 @@ class ShapeReco(inkex.Effect):
                     circ.moved = True
                 
 
-    def adjustToKnownAngle(self, paths):
+    def adjustToKnownAngle( paths):
         """ Check current angle against remarkable angles. If close enough, change it
         paths : a list of segments"""
         for seg in paths:
@@ -297,11 +220,82 @@ class ShapeReco(inkex.Effect):
             i = (abs(geometric.vec_in_mPi_pPi(geometric.knownAngle - a) )).argmin()
             seg.newAngle = geometric.knownAngle[i]
             debug( '  Known angle ', seg, seg.tempAngle(), '  -> ', geometric.knownAngle[i]) 
-            ## if abs(geometric.knownAngle[i] - a) < 0.08:
+            ## if abs(geometric.knownAngle[i] - a) < 0.08:        
 
+class PostProcess():
+    def mergeConsecutiveParralels(segments, options):
+        ignoreNext=False
+        newList=[]
+        for s in segments:
+            if ignoreNext:
+                ignoreNext=False
+                continue
+            if not s.isSegment():
+                newList.append(s)
+                continue
+            if not hasattr(s, "__next__"):
+                newList.append(s)
+                continue
+            if not s.next.isSegment():
+                newList.append(s)
+                continue
+            d = geometric.closeAngleAbs(s.angle, s.next.angle)
+            if d < options.segAngleMergePara:
+                debug("merging ", s.angle, s.next.angle )
+                snew = s.mergedWithNext(doRefit=False)
+                ignoreNext=True
+                newList.append(snew)
+            else:
+                debug("notmerging ", s.angle, s.next.angle )
+                newList.append(s)
+        if len(segments)>len(newList):
+            debug("merged parallel ", segments, '-->', newList)
+        return newList
+    
+    def uniformizeShapes(pathGroupList, options):
+        allSegs = [ p  for g in pathGroupList for p in g.listOfPaths if p.isSegment() ]
+
+        if options.doParrallelize:
+            PreProcess.prepareParrallelize(allSegs)
+        if options.doKnownAngle:
+            PreProcess.adjustToKnownAngle(allSegs)
+
+        adjustAng = options.doKnownAngle or options.doParrallelize
         
+        allShapeDist = []
+        for g in [ group for group in pathGroupList if not isinstance(group, groups.Circle)]:
+                # first pass : independently per path
+                if adjustAng:
+                    manipulation.adjustAllAngles(g.listOfPaths)
+                    g.listOfPaths[:] = PostProcess.mergeConsecutiveParralels(g.listOfPaths, options)
+                if options.doEqualizeDist:
+                    allShapeDist=allShapeDist + PreProcess.prepareDistanceEqualization([p for p in g.listOfPaths if p.isSegment()], options.shapeDistLocal ) ##0.30
+                    manipulation.adjustAllDistances([p for p in g.listOfPaths if p.isSegment()])      #findme was group.li..
+                    
+        ## # then 2nd global pass, with tighter criteria
+        if options.doEqualizeDist:
+            allShapeDist=PreProcess.prepareDistanceEqualization(allSegs, options.shapeDistGlobal) ##0.08
+            for g in [ group for group in pathGroupList if not isinstance(group, groups.Circle)]:
+                manipulation.adjustAllDistances([p for p in g.listOfPaths if p.isSegment()])
+            
+        #TODO: I think this is supposed to close thje paths and it is failing
+        for g in pathGroupList: 
+            if g.isClosing and not isinstance(g, groups.Circle):
+                debug('Closing intersec ', g.listOfPaths[0].point1, g.listOfPaths[0].pointN )
+                g.listOfPaths[-1].setIntersectWithNext(g.listOfPaths[0])  
 
-    def checkForCircle(self, points, tangents):
+
+        circles=[ group for group in pathGroupList if isinstance(group, groups.Circle)]
+        if options.doEqualizeRadius:
+            PreProcess.prepareRadiusEqualization(circles, allShapeDist)
+        if options.doCenterCircOnSeg:
+            PreProcess.centerCircOnSeg(circles, allSegs)
+
+        pathGroupList = [manipulation.toRemarkableShape(g) for g in pathGroupList]
+        return pathGroupList
+
+class FitShapes():
+    def checkForCircle(points, tangents):
         """Determine if the points and their tangents represent a circle
 
         The difficulty is to be able to recognize ellipse while avoiding paths small fluctuations a
@@ -367,7 +361,7 @@ class ShapeReco(inkex.Effect):
                 belowT = False
             belowT= (v<6)
 
-        self.temp = (deltasD, angles, tangents, dAdD )
+        temp = (deltasD, angles, tangents, dAdD )
         fracStraight = numpy.sum(deltasDD[numpy.where(dAdD<0.3)])/(deltasD[-1]-deltasD[0])
         curveLength = deltasD[-1]/3.14
         #print "SSS ",count , fracStraight
@@ -405,7 +399,7 @@ class ShapeReco(inkex.Effect):
         return True, (xmin+w*0.5, ymin+h*0.5, 0.5*(rmin+rmin_2), 0.5*(rmax+rmax_2), anglemax)
         
         
-    def checkForArcs(self, points, tangents):
+    def checkForArcs(points, tangents):
            """Determine if the points and their tangents represent a circle
    
            The difficulty is to be able to recognize ellipse while avoiding paths small fluctuations a
@@ -531,7 +525,7 @@ class ShapeReco(inkex.Effect):
 
 
 
-    def tangentEnvelop(self, svgCommandsList, refNode):
+    def tangentEnvelop(svgCommandsList, refNode, options):
         a, svgCommandsList = geometric.toArray(svgCommandsList)
         tangents = manipulation.buildTangents(a)
 
@@ -542,8 +536,52 @@ class ShapeReco(inkex.Effect):
 
         return TangentEnvelop( newSegs, svgCommandsList, refNode)
 
+    def isClosing(wTot, hTot, d):
+        aR = min(wTot/hTot, hTot/wTot)
+        maxDim = max(wTot, hTot)
+        # was 0.2
+        return aR*0.5 > d/maxDim
+        
+        
+    def curvedFromTangents(svgCommandsList, refNode, x, y, wTot, hTot, d, isClosing, sourcepoints, tangents, options):
 
-    def segsFromTangents(self, svgCommandsList, refNode):
+#        debug('isClosing ', isClosing, maxDim, d)
+
+        # global quantities :
+        hasArcs = False
+        res = ()
+        # Check if circle -----------------------
+        if isClosing:
+            if len(sourcepoints)<9:
+                return groups.PathGroup.toSegments(sourcepoints, svgCommandsList, refNode, isClosing=True)
+            isCircle, res = FitShapes.checkForCircle( sourcepoints, tangents)        
+            debug("Is Circle = ", isCircle )
+            if isCircle:
+                x, y, rmin, rmax, angle = res
+                debug("Circle -> ", rmin, rmax, angle )
+                if rmin/rmax>0.7:
+                    circ = groups.Circle((x, y), 0.5*(rmin+rmax),  refNode )
+                else:
+                    circ = groups.Circle((x, y), rmin,  refNode, rmax=rmax, angle=angle)
+                circ.points = sourcepoints
+                return circ
+            #else:
+            #    hasArcs, res = FitShapes.checkForArcs( sourcepoints, tangents)   
+        #else:
+            #hasArcs, res = FitShapes.checkForArcs( sourcepoints, tangents)
+        # -----------------------
+        if hasArcs:
+            x, y, rmin, rmax, angle = res
+            debug("Circle -> ", rmin, rmax, angle )
+            if rmin/rmax>0.7:
+                circ = groups.Circle((x, y), 0.5*(rmin+rmax),  refNode )
+            else:
+                circ = groups.Circle((x, y), rmin,  refNode, rmax=rmax, angle=angle)
+            circ.points = sourcepoints
+            return circ
+        return None
+    
+    def segsFromTangents(svgCommandsList, refNode, options):
         """Finds segments part in a list of points represented by svgCommandsList.
 
         The method is to build the (averaged) tangent vectors to the curve.
@@ -559,56 +597,23 @@ class ShapeReco(inkex.Effect):
         x, y, wTot, hTot = geometric.computeBox(sourcepoints)
         if wTot == 0: wTot = 0.001
         if hTot == 0: hTot = 0.001
-        aR = min(wTot/hTot, hTot/wTot)
-        maxDim = max(wTot, hTot)
-        # was 0.2
-        isClosing = aR*0.5 > d/maxDim
-        debug('isClosing ', isClosing, maxDim, d)
         if d==0:
             # then we remove the last point to avoid null distance
             # in other calculations
             sourcepoints = sourcepoints[:-1]
             svgCommandsList = svgCommandsList[:-1]
-
+        
+        isClosing = FitShapes.isClosing(wTot, hTot, d)
+            
         if len(sourcepoints) < 4:
             return groups.PathGroup.toSegments(sourcepoints, svgCommandsList, refNode, isClosing=isClosing)
-        
+
         tangents = manipulation.buildTangents(sourcepoints, isClosing=isClosing)
-
-        # global quantities :
-        hasArcs = False
-        res = ()
-        # Check if circle -----------------------
-        if isClosing:
-            if len(sourcepoints)<9:
-                return groups.PathGroup.toSegments(sourcepoints, svgCommandsList, refNode, isClosing=True)
-            isCircle, res = self.checkForCircle( sourcepoints, tangents)        
-            debug("Is Circle = ", isCircle )
-            if isCircle:
-                x, y, rmin, rmax, angle = res
-                debug("Circle -> ", rmin, rmax, angle )
-                if rmin/rmax>0.7:
-                    circ = groups.Circle((x, y), 0.5*(rmin+rmax),  refNode )
-                else:
-                    circ = groups.Circle((x, y), rmin,  refNode, rmax=rmax, angle=angle)
-                circ.points = sourcepoints
-                return circ
-            #else:
-            #    hasArcs, res = self.checkForArcs( sourcepoints, tangents)   
-        #else:
-            #hasArcs, res = self.checkForArcs( sourcepoints, tangents)
-        # -----------------------
-        if hasArcs:
-        	x, y, rmin, rmax, angle = res
-	        debug("Circle -> ", rmin, rmax, angle )
-	        if rmin/rmax>0.7:
-	            circ = groups.Circle((x, y), 0.5*(rmin+rmax),  refNode )
-	        else:
-	            circ = groups.Circle((x, y), rmin,  refNode, rmax=rmax, angle=angle)
-	        circ.points = sourcepoints
-	        return circ
             
-
+        aCurvedSegment = FitShapes.curvedFromTangents(svgCommandsList, refNode, x, y, wTot, hTot, d, isClosing, sourcepoints, tangents, options)
+        
+        if not aCurvedSegment == None:
+            return aCurvedSegment
 
         # cluster points by angle of their tangents -------------
         tgSegs = [ internal.Segment.fromCenterAndDir( p, t ) for (p, t) in zip(sourcepoints, tangents) ]
@@ -658,8 +663,8 @@ class ShapeReco(inkex.Effect):
 
 
         # Extend segments -----------------------------------
-        if self.options.segExtensionEnable:
-            newSegs = extenders.SegmentExtender.extendSegments( newSegs, self.options.segExtensionDtoSeg, self.options.segExtensionQual )
+        if options.segExtensionEnable:
+            newSegs = extenders.SegmentExtender.extendSegments( newSegs, options.segExtensionDtoSeg, options.segExtensionQual )
             debug("extended segs", newSegs)
             newSegs = manipulation.resetPrevNextSegment( newSegs )
             debug("extended segs", newSegs)
@@ -671,11 +676,11 @@ class ShapeReco(inkex.Effect):
         # merge consecutive segments with close angle
         updatedSegs=[]
 
-        if self.options.segAngleMergeEnable:
-            newSegs = miscellaneous.mergeConsecutiveCloseAngles( newSegs, mangle=self.options.segAngleMergeTol1 )
+        if options.segAngleMergeEnable:
+            newSegs = miscellaneous.mergeConsecutiveCloseAngles( newSegs, mangle=options.segAngleMergeTol1 )
             newSegs=manipulation.resetPrevNextSegment(newSegs)
             debug(' __ 2nd angle merge')
-            newSegs = miscellaneous.mergeConsecutiveCloseAngles( newSegs, mangle=self.options.segAngleMergeTol2 ) # 2nd pass
+            newSegs = miscellaneous.mergeConsecutiveCloseAngles( newSegs, mangle=options.segAngleMergeTol2 ) # 2nd pass
             newSegs=manipulation.resetPrevNextSegment(newSegs)
             debug('after merge ', len(newSegs), newSegs)
             # Check if first and last also have close angles.
@@ -693,8 +698,8 @@ class ShapeReco(inkex.Effect):
 
         # -----------------------------------------------------
         # remove negligible Path/Segments between 2 large Segments
-        if self.options.segRemoveSmallEdge:
-            self.removeSmallEdge(newSegs, wTot, hTot)
+        if options.segRemoveSmallEdge:
+            PreProcess.removeSmallEdge(newSegs, wTot, hTot)
             newSegs=manipulation.resetPrevNextSegment(newSegs)
 
             debug('after remove small ', len(newSegs), newSegs)
@@ -710,6 +715,81 @@ class ShapeReco(inkex.Effect):
         return groups.PathGroup(newSegs, svgCommandsList, refNode, isClosing)
 
 
+
+
+# *************************************************************
+# The inkscape extension
+# *************************************************************
+class ShapeReco(inkex.Effect):
+    def __init__(self):
+        inkex.Effect.__init__(self)
+        self.arg_parser.add_argument("--title")
+        self.arg_parser.add_argument("-k", "--keepOrigin", dest="keepOrigin", default=False,
+                                     type=inkex.Boolean,                                      
+                                     help="Do not replace path")
+
+        self.arg_parser.add_argument( "--MainTabs")
+        #self.arg_parser.add_argument( "--Basic")
+
+        self.arg_parser.add_argument( "--segExtensionDtoSeg", dest="segExtensionDtoSeg", default=0.03,
+                                      type=float,                                      
+                                      help="max distance from point to segment")
+        self.arg_parser.add_argument( "--segExtensionQual", dest="segExtensionQual", default=0.5,
+                                      type=float,                                      
+                                      help="segment extension fit quality")
+        self.arg_parser.add_argument( "--segExtensionEnable", dest="segExtensionEnable", default=True,
+                                      type=inkex.Boolean,                                      
+                                      help="Enable segment extension")
+
+
+        self.arg_parser.add_argument( "--segAngleMergeEnable", dest="segAngleMergeEnable", default=True,
+                                      type=inkex.Boolean,                                      
+                                      help="Enable merging of almost aligned consecutive segments")
+        self.arg_parser.add_argument( "--segAngleMergeTol1", dest="segAngleMergeTol1", default=0.2,
+				      type=float,                                      
+                                      help="merging with tollarance 1")
+        self.arg_parser.add_argument( "--segAngleMergeTol2", dest="segAngleMergeTol2", default=0.35,
+				      type=float,                                      
+                                      help="merging with tollarance 2")
+                                      
+        self.arg_parser.add_argument( "--segAngleMergePara", dest="segAngleMergePara", default=0.001,
+				      type=float,                                      
+                                      help="merge lines as parralels if they fit")
+
+        self.arg_parser.add_argument( "--segRemoveSmallEdge", dest="segRemoveSmallEdge", default=True,
+                                      type=inkex.Boolean,                                      
+                                      help="Enable removing very small segments")
+
+        self.arg_parser.add_argument( "--doUniformization", dest="doUniformization", default=True,
+                                     type=inkex.Boolean,                                      
+                                     help="Preform angles and distances uniformization")
+
+        for opt in ["doParrallelize", "doKnownAngle", "doEqualizeDist", "doEqualizeRadius", "doCenterCircOnSeg"]:
+            self.arg_parser.add_argument( "--"+opt, dest=opt, default=True,
+                                          type=inkex.Boolean,                                      
+                                          help=opt)
+                                          #0.3
+        self.arg_parser.add_argument( "--shapeDistLocal", dest="shapeDistLocal", default=0.3,
+	                                     type=float,                                      
+                                     help="Pthe percentage of difference at which we make lengths equal, locally")
+                                     #0.025
+        self.arg_parser.add_argument( "--shapeDistGlobal", dest="shapeDistGlobal", default=0.025,
+	                                     type=float,                                      
+                                     help="Pthe percentage of difference at which we make lengths equal, globally")
+                                          
+
+        
+    def effect(self):
+
+        rej='{http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd}type'
+        paths = []
+        for id, node in list(self.svg.selected.items()):
+            if node.tag == '{http://www.w3.org/2000/svg}path' and rej not in list(node.keys()):                
+                paths.append(node)
+
+        shapes = self.extractShapes(paths)
+        # add new shapes in SVG document
+        self.addShapesToDoc( shapes )
 
     def extractShapesFromID( self, *nids, **options ):
         """for debugging purpose """
@@ -741,7 +821,7 @@ class ShapeReco(inkex.Effect):
             parsedSVGCommands = node.get('d')
                         
             strPath = simplepath.parsePath(str(parsedSVGCommands))
-            g = self.segsFromTangents(simplepath.parsePath(parsedSVGCommands), node)
+            g = FitShapes.segsFromTangents(simplepath.parsePath(parsedSVGCommands), node, self.options)
         elif node.tag.endswith('rect'):
             tr = node.get('transform', None)
             if tr and tr.startswith('matrix'):
@@ -775,81 +855,9 @@ class ShapeReco(inkex.Effect):
 
         # uniformize shapes
         if self.options.doUniformization:
-            analyzedNodes = self.uniformizeShapes(analyzedNodes)
+            analyzedNodes = PostProcess.uniformizeShapes(analyzedNodes, self.options)
 
-        return analyzedNodes
-
-    def mergeConsecutiveParralels(self, segments):
-        ignoreNext=False
-        newList=[]
-        for s in segments:
-            if ignoreNext:
-                ignoreNext=False
-                continue
-            if not s.isSegment():
-                newList.append(s)
-                continue
-            if not hasattr(s, "__next__"):
-                newList.append(s)
-                continue
-            if not s.next.isSegment():
-                newList.append(s)
-                continue
-            d = geometric.closeAngleAbs(s.angle, s.next.angle)
-            if d<self.options.segAngleMergePara:
-                debug("merging ", s.angle, s.next.angle )
-                snew = s.mergedWithNext(doRefit=False)
-                ignoreNext=True
-                newList.append(snew)
-            else:
-                debug("notmerging ", s.angle, s.next.angle )
-                newList.append(s)
-        if len(segments)>len(newList):
-            debug("merged parallel ", segments, '-->', newList)
-        return newList
-    
-    def uniformizeShapes(self, pathGroupList):
-        allSegs = [ p  for g in pathGroupList for p in g.listOfPaths if p.isSegment() ]
-
-        if self.options.doParrallelize:
-            self.prepareParrallelize(allSegs)
-        if self.options.doKnownAngle:
-            self.adjustToKnownAngle(allSegs)
-
-        adjustAng = self.options.doKnownAngle or self.options.doParrallelize
-        
-        allShapeDist = []
-        for g in [ group for group in pathGroupList if not isinstance(group, groups.Circle)]:
-                # first pass : independently per path
-                if adjustAng:
-                    manipulation.adjustAllAngles(g.listOfPaths)
-                    g.listOfPaths[:] = self.mergeConsecutiveParralels(g.listOfPaths)
-                if self.options.doEqualizeDist:
-                    allShapeDist=allShapeDist + self.prepareDistanceEqualization([p for p in g.listOfPaths if p.isSegment()], self.options.shapeDistLocal ) ##0.30
-                    manipulation.adjustAllDistances([p for p in g.listOfPaths if p.isSegment()])      #findme was group.li..
-                    
-        ## # then 2nd global pass, with tighter criteria
-        if self.options.doEqualizeDist:
-            allShapeDist=self.prepareDistanceEqualization(allSegs, self.options.shapeDistGlobal) ##0.08
-            for g in [ group for group in pathGroupList if not isinstance(group, groups.Circle)]:
-                manipulation.adjustAllDistances([p for p in g.listOfPaths if p.isSegment()])
-            
-        #TODO: I think this is supposed to close thje paths and it is failing
-        for g in pathGroupList: 
-            if g.isClosing and not isinstance(g, groups.Circle):
-                debug('Closing intersec ', g.listOfPaths[0].point1, g.listOfPaths[0].pointN )
-                g.listOfPaths[-1].setIntersectWithNext(g.listOfPaths[0])  
-
-
-        circles=[ group for group in pathGroupList if isinstance(group, groups.Circle)]
-        if self.options.doEqualizeRadius:
-            self.prepareRadiusEqualization(circles, allShapeDist)
-        if self.options.doCenterCircOnSeg:
-            self.centerCircOnSeg(circles, allSegs)
-
-        pathGroupList = [manipulation.toRemarkableShape(g) for g in pathGroupList]
-        return pathGroupList
-        
+        return analyzedNodes       
         
     def addShapesToDoc(self, pathGroupList):
         for group in pathGroupList:            
